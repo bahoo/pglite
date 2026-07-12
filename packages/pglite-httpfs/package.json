@@ -1,0 +1,77 @@
+{
+  "name": "@electric-sql/pglite-httpfs",
+  "version": "0.0.1",
+  "private": false,
+  "description": "Remote-backed filesystem for PGlite — query a data directory served from any HTTP host or S3 bucket using lazy range reads and a copy-on-write memory overlay",
+  "type": "module",
+  "author": "Electric DB Limited",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/electric-sql/pglite",
+    "directory": "packages/pglite-httpfs"
+  },
+  "homepage": "https://pglite.dev",
+  "keywords": [
+    "postgres",
+    "postgresql",
+    "sqlite",
+    "pglite",
+    "s3",
+    "http",
+    "vfs",
+    "filesystem"
+  ],
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./manifest-node": {
+      "import": {
+        "types": "./dist/manifest-node.d.ts",
+        "default": "./dist/manifest-node.js"
+      },
+      "require": {
+        "types": "./dist/manifest-node.d.cts",
+        "default": "./dist/manifest-node.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ./src ./tests --report-unused-disable-directives --max-warnings 0",
+    "format": "prettier --write ./src ./tests",
+    "stylecheck": "pnpm lint && prettier --check ./src ./tests"
+  },
+  "peerDependencies": {
+    "@aws-sdk/client-s3": ">=3.0.0",
+    "@electric-sql/pglite": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "@aws-sdk/client-s3": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "workspace:*",
+    "@types/node": "^20.16.11",
+    "tsx": "^4.19.2",
+    "vitest": "^2.0.5"
+  }
+}

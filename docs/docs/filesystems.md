@@ -117,3 +117,45 @@ The Origin Private Filesystem API provides both asynchronous and synchronous met
 To overcome these limitations, and to provide a fully synchronous file system to PGlite on top of OPFS, we use something called an "access handle pool". When you first start PGlite we open a pool of OPFS access handles with randomised file names; these are then allocated to files as needed. After each query, a pool maintenance job is scheduled that maintains its size. When you inspect the OPFS directory where the database is stored, you will not see the normal Postgres directory layout, but rather a pool of files and a state file containing the directory tree mapping along with file metadata.
 
 The PGlite OPFS AHP FS is inspired by the [wa-sqlite](https://github.com/rhashimoto/wa-sqlite) access handle pool file system by [Roy Hashimoto](https://github.com/rhashimoto).
+
+## HTTP / S3 FS
+
+The `@electric-sql/pglite-httpfs` package provides a filesystem that serves a Postgres data directory directly from a remote store — any static HTTP host that supports Range requests, or any S3-compatible bucket — fetching only the bytes Postgres actually reads. Small files are downloaded whole on first access; large files (heap tables, indexes) are range-fetched in chunks of 8 KB Postgres pages, so a multi-GB database can answer its first query after downloading only a few MB.
+
+All writes — including the hint bits Postgres sets on heap pages during plain `SELECT`s — are absorbed by an in-memory copy-on-write overlay and are ephemeral: the remote data directory is never modified. Treat it as a read-only snapshot; this is designed for serverless read replicas, data distribution and demo/analytics databases.
+
+```ts
+import { PGlite } from '@electric-sql/pglite'
+import { RemoteFilesystem } from '@electric-sql/pglite-httpfs'
+
+const pg = await PGlite.create({
+  fs: new RemoteFilesystem({
+    backend: { type: 'http', baseUrl: 'https://cdn.example.com/mydb' },
+  }),
+})
+```
+
+Or from S3 (requires the optional `@aws-sdk/client-s3` peer dependency):
+
+```ts
+const pg = await PGlite.create({
+  fs: new RemoteFilesystem({
+    backend: {
+      type: 's3',
+      bucket: 'my-bucket',
+      prefix: 'pglite/mydb/',
+      clientConfig: { region: 'us-west-2' },
+    },
+  }),
+})
+```
+
+To publish a database, build it locally, `CHECKPOINT`, generate a manifest with `writeManifest()` from `@electric-sql/pglite-httpfs/manifest-node`, and upload the directory. See the [package README](https://github.com/electric-sql/pglite/tree/main/packages/pglite-httpfs) for baking instructions, tuning options and how the synchronous fetch bridge works.
+
+### Platform Support
+
+| Node | Bun | Deno | Chrome | Safari | Firefox |
+| ---- | --- | ---- | ------ | ------ | ------- |
+| ✓    |     |      | ✓\*    | ✓\*    | ✓\*     |
+
+\* HTTP backend only, and PGlite must run inside a Web Worker (the filesystem uses synchronous `XMLHttpRequest`, which browsers only allow in workers). In Node, both backends are available and the async fetches run in a worker thread that the calling thread awaits via `SharedArrayBuffer` + `Atomics.wait`.
