@@ -248,8 +248,14 @@ const createEmscriptenFS = (Module: PostgresMod, baseFS: BaseFilesystem) => {
         return f()
       } catch (e: any) {
         if (!e.code) throw e
-        if (e.code === 'UNKNOWN') throw new FS.ErrnoError(ERRNO_CODES.EINVAL)
-        throw new FS.ErrnoError(e.code)
+        // FS.ErrnoError takes a numeric emscripten errno. Errors thrown with
+        // a string code (e.g. Node-style { code: 'ENOENT' }) must be mapped,
+        // otherwise the resulting error has a string errno that fails
+        // emscripten's internal `errno === ERRNO_CODES.ENOENT` checks and
+        // breaks the O_CREAT file creation path.
+        if (typeof e.code === 'number') throw new FS.ErrnoError(e.code)
+        const errno = ERRNO_CODES[e.code as keyof typeof ERRNO_CODES]
+        throw new FS.ErrnoError(errno ?? ERRNO_CODES.EINVAL)
       }
     },
     mount(_mount: FSMount): FSNode {
